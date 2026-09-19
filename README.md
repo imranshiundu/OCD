@@ -26,6 +26,7 @@ OCD replaces all three with discipline.
 - **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff.
 - **Truth protocol** — bad news first, quantified ("~50ms per request", not "could be slow"), unprompted, and never softened.
 - **Receipts protocol** — makes lying structurally hard: every claim carries verbatim evidence (command + exit code + output excerpt); claims without receipts are void; every factual claim is labeled VERIFIED / ASSUMED / UNKNOWN; the final report must include an Evidence Block.
+- **No-laziness protocol** — fix every occurrence of a repeated problem, not the first; no stubs pretending to be features; boring work (tests, docs, types) is part of the task; every skip declared with a reason; the hard part first; "good enough" banned.
 - **Six-axis sweep** — correctness, security, performance, structure, readability, spec & standards, on every change.
 - **Smell baseline** — the classic Fowler smells applied even when the repo documents nothing.
 - **Code judo** — ambition about structure: restructurings that delete complexity instead of relocating it.
