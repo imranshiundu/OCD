@@ -25,6 +25,7 @@ OCD replaces all three with discipline.
 - **Session-start arsenal** — detect the project stack, install the skills it needs (`npx skills add`), upgrade stale ones (`npx skills update`), and actually read them before writing a line.
 - **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff.
 - **Truth protocol** — bad news first, quantified ("~50ms per request", not "could be slow"), unprompted, and never softened.
+- **Receipts protocol** — makes lying structurally hard: every claim carries verbatim evidence (command + exit code + output excerpt); claims without receipts are void; every factual claim is labeled VERIFIED / ASSUMED / UNKNOWN; the final report must include an Evidence Block.
 - **Six-axis sweep** — correctness, security, performance, structure, readability, spec & standards, on every change.
 - **Smell baseline** — the classic Fowler smells applied even when the repo documents nothing.
 - **Code judo** — ambition about structure: restructurings that delete complexity instead of relocating it.
