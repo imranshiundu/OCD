@@ -22,8 +22,8 @@ OCD replaces all three with discipline.
 
 ## What it enforces
 
-- **Session-start arsenal** — detect the project stack, install the skills it needs (`npx skills add`), upgrade stale ones (`npx skills update`), and actually read them before writing a line.
-- **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff.
+- **Session-start arsenal** — detect the project stack, install the skills it needs (`npx skills add`), upgrade stale ones (`npx skills update -y -g`, throttled to once per 24h), and read only the ones relevant to the task.
+- **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff. Enforced mechanically by `scripts/verify.sh` when available.
 - **Truth protocol** — bad news first, quantified ("~50ms per request", not "could be slow"), unprompted, and never softened.
 - **Receipts protocol** — makes lying structurally hard: every claim carries verbatim evidence (command + exit code + output excerpt); claims without receipts are void; every factual claim is labeled VERIFIED / ASSUMED / UNKNOWN; the final report must include an Evidence Block.
 - **No-laziness protocol** — fix every occurrence of a repeated problem, not the first; no stubs pretending to be features; boring work (tests, docs, types) is part of the task; every skip declared with a reason; the hard part first; "good enough" banned.
@@ -31,15 +31,17 @@ OCD replaces all three with discipline.
 - **Smell baseline** — the classic Fowler smells applied even when the repo documents nothing.
 - **Code judo** — ambition about structure: restructurings that delete complexity instead of relocating it.
 - **File-size & spaghetti rules** — no file pushed past 1,000 lines without decomposition; no ad-hoc conditionals bolted onto unrelated flows.
-- **Debt Ledger** — a running, severity-ordered list of known problems, burned down every session.
+- **Debt Ledger** — a running, severity-ordered list of known problems, burned down every session. It lives in `DEBT_LEDGER.md` at the repo root — a file, not a metaphor.
 - **Ownership** — agents act like professional owners, suggest winning ideas with concrete payoffs, and have no peace while the project is ugly.
 - **Scale protocol** — the bar never relaxes with size; only the ceremony adapts.
 
 ## Install
 
 ```bash
-npx skills add imranshiundu/OCD@ocd -g
+npx skills add imranshiundu/OCD@ocd -g -y
 ```
+
+CLI installs are tracked: `npx skills update -y -g` upgrades them later, and installs count toward the [skills.sh](https://skills.sh/) metrics. Manual copies work but are frozen — they register as `Source: local`, the updater never touches them, and they don't count. If you install manually, you own re-syncing by hand — or symlink into the agent dir from a local clone, which self-syncs on every commit (the dev pattern).
 
 Or manually, clone and drop the skill folder where your agent loads skills:
 
@@ -63,7 +65,7 @@ When an agent is asked to find, install, or set up skills for any project, it fo
 2. **Verify** — prefer 1K+ installs, reputable sources (vercel-labs, anthropics, microsoft), and healthy GitHub stars. Treat anything under 100 installs with skepticism.
 3. **Install** — `npx skills add <owner/repo@skill> -g -y` (global) or drop `-g` for project-scoped. Manual: clone the repo and drop the skill folder (containing `SKILL.md`) into the agent's skill directory (see table above).
 4. **Confirm loaded** — restart the session; verify the skill appears in the agent's available skills list.
-5. **Update** — `npx skills update` at every session start. Outdated guidance is quietly wrong guidance.
+5. **Update** — `npx skills update -y -g` for global skills (`-y` is mandatory in agent shells — the bare command prompts for a scope and stalls), throttled to once per 24h per machine. Every skill the updater changed is named in the report — a regression needs a named suspect.
 
 ### The OCD-First Rule
 
@@ -83,6 +85,22 @@ The skill triggers automatically when agents work in any codebase — but you ca
 - "Be OCD about this"
 
 The agent will initialize its skill arsenal, run the verification loop, sweep all six axes, tell you the worst thing first, and hand you a Debt Ledger.
+
+## Self-verification
+
+This repo passes its own bar:
+
+```bash
+make verify          # or: scripts/verify.sh .
+```
+
+`verify.sh` is the mechanical form of the Zero-Error Exit Criteria: it detects lint/typecheck/test/build from a project's own config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod, pyproject), runs each one, and prints receipts — the command, its exit code, and the verbatim output tail. Drop it into any project or point it at one: `scripts/verify.sh /path/to/project`. Exit codes: `0` green, `1` red, `2` untestable — and untestable is itself a finding.
+
+`scripts/selftest.sh` (run via `make test`) proves the verifier with fixture projects: green and red npm projects, Makefile/justfile/cargo/go fixtures, script-alias detection.
+
+## Versions
+
+See [CHANGELOG.md](CHANGELOG.md). The current version lives in the frontmatter (`metadata.version` in `ocd/SKILL.md`). Known open problems live in [DEBT_LEDGER.md](DEBT_LEDGER.md).
 
 ## Standing on the shoulders of
 
