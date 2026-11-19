@@ -99,3 +99,88 @@ Then, in your project:
 ```bash
 bash scripts/verify.sh .     # lint/typecheck/test/build, with receipts
 ```
+
+## The toolkit
+
+Three scripts ship inside the skill folder. Full manuals in [`docs/`](docs/).
+
+### verify.sh — the mechanical bar
+
+Detects the verification commands from a project's **own** config, runs each one, and prints receipts: the command, its exit code, and the verbatim output tail. A red suite plus the word "done" is a lie — this makes the lie impossible to print with a straight face.
+
+```bash
+bash ocd/scripts/verify.sh .            # human-readable receipts
+bash ocd/scripts/verify.sh --json .     # one JSON document, for tooling
+bash ocd/scripts/verify.sh --version    # version, read from the skill frontmatter
+```
+
+| Exit code | Meaning |
+|---|---|
+| `0` | all detected commands green |
+| `1` | at least one command failed — fix and re-run |
+| `2` | no verification commands detected (untestable — itself a finding) |
+| `64` | usage error |
+
+### ocdify.sh — bootstrap any project
+
+One command installs the mechanical bar into any repo:
+
+```bash
+bash ocd/scripts/ocdify.sh /path/to/project     # verifier + Debt Ledger
+bash ocd/scripts/ocdify.sh /path/to/project -f  # also replace an existing verifier copy
+bash ocd/scripts/ocdify.sh /path/to/project -m  # also wire a make verify target
+bash ocd/scripts/ocdify.sh /path/to/project -c  # check only — plan, touch nothing
+```
+
+An existing `DEBT_LEDGER.md` is never overwritten, even with `-f` — the ledger is the owner's data. `--check` exits `3` when the project needs work and `0` when it is already compliant, so CI can demand ocdification without side effects.
+
+### ledger.sh — keep the ledger honest
+
+The Debt Ledger is a file, not a metaphor: `DEBT_LEDGER.md` at the repo root, ordered by severity. This script maintains it mechanically:
+
+```bash
+bash ocd/scripts/ledger.sh add "[High] checkout flow has no tests"
+bash ocd/scripts/ledger.sh ls
+bash ocd/scripts/ledger.sh burn 2          # fixed — moves to the dated Burned section
+bash ocd/scripts/ledger.sh validate
+```
+
+Burned items are struck through and dated, never deleted — history remembers what was fixed and when.
+
+## What verify.sh detects
+
+The verifier reads the project's own configuration. It never guesses a toolchain that isn't there, and a missing tool is a declared `UNTESTED` note — never silent.
+
+| Signal in the project | What runs |
+|---|---|
+| `package.json` + `package-lock.json` / no lockfile | `npm run lint/typecheck/test/build` |
+| `package.json` + `pnpm-lock.yaml` | `pnpm run …` |
+| `package.json` + `yarn.lock` | `yarn run …` |
+| `package.json` + `bun.lock` / `bun.lockb` | `bun run …` |
+| `Makefile` | `make lint/typecheck/test/build` (targets that exist) |
+| `justfile` | `just lint/typecheck/test/build` (recipes that exist) |
+| `Cargo.toml` | `cargo fmt --check` (when rustfmt present), `cargo test` |
+| `go.mod` | `go vet ./…`, `go test ./…`, `go build ./…` |
+| `pom.xml` | `./mvnw -B test` (wrapper preferred, `mvn` fallback) |
+| `build.gradle` / `build.gradle.kts` | `./gradlew check` (wrapper preferred, `gradle` fallback) |
+| `composer.json` | `composer run test` (when `scripts.test` is defined) |
+| `deno.json` / `deno.jsonc` | `deno lint`, `deno test` |
+| `CMakeLists.txt` | `cmake -S . -B <tmp> && cmake --build <tmp>` (temp dir, tree untouched) |
+| `pyproject.toml` / `setup.py` + pytest | `poetry run pytest -q` when `poetry.lock` + poetry exist, else `python3 -m pytest -q` |
+| `pyproject.toml` + ruff config | `ruff check .` |
+| `.github/workflows/*.yml` | see below |
+
+**CI-workflow detection.** Single-line `run:` commands are extracted from GitHub workflow files, and only exact matches from a fixed allowlist of canonical verification commands (`npm run test`, `pytest`, `make lint`, `go test ./...`, …) are run. Multiline blocks, pipes, variables, and anything not on the list are skipped by design — the verifier runs what the project's own CI runs, nothing more. Commands detected twice (config *and* workflow) run once, with a receipt for the skip.
+
+## Self-verification
+
+This repo passes its own bar, in public, on every push — [CI](https://github.com/imranshiundu/OCD/actions/workflows/ci.yml) runs shellcheck, the full fixture selftest, and a self-verify pass on both ubuntu and macOS.
+
+```bash
+make help   # list targets
+make lint   # shellcheck every shipped script (bash -n fallback)
+make test   # fixture selftest: green and red projects, every detector, every flag
+make verify # run the verifier against this repo
+```
+
+The selftest proves the verifier with real fixture projects — green and red suites for every supported toolchain, package-manager detection, CI-workflow allowlisting, JSON mode, the bootstrapper, and the ledger manager. Fixtures that need absent tools skip with a declaration, exactly as the skill prescribes.
