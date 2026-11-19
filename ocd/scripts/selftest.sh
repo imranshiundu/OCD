@@ -4,6 +4,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 VERIFY="$HERE/verify.sh"
 OCDIFY="$HERE/ocdify.sh"
+LEDGER="$HERE/ledger.sh"
 PASS=0
 FAIL=0
 SKIP=0
@@ -379,6 +380,30 @@ if [ -f "$OCDIFY" ]; then
   expect_output "--make never duplicates a verify target" 'skipped: Makefile already has a verify target' bash "$OCDIFY" "$FIX" -m
 else
   skip "ocdify suite (ocdify.sh not found)"
+fi
+
+if [ -f "$LEDGER" ]; then
+  new_fixture
+  LG="$FIX/DEBT_LEDGER.md"
+  expect_exit "ledger add creates the ledger" 0 bash "$LEDGER" add "[High] fixture debt one" "$LG"
+  expect_output "created ledger carries the template header" '^# Debt Ledger' cat "$LG"
+  expect_exit "ledger add rejects unlabeled items" 1 bash "$LEDGER" add "no label here" "$LG"
+  bash "$LEDGER" add "[Low] fixture debt two" "$LG" >/dev/null 2>&1
+  expect_output "ls numbers items in order" '1: \[High\] fixture debt one' bash "$LEDGER" ls "$LG"
+  expect_output "ls lists the second item" '2: \[Low\] fixture debt two' bash "$LEDGER" ls "$LG"
+  expect_exit "burn needs a number" 1 bash "$LEDGER" burn x "$LG"
+  expect_exit "burn rejects out-of-range numbers" 1 bash "$LEDGER" burn 9 "$LG"
+  expect_output "burn moves the item with a receipt" 'burned from .*: \[High\] fixture debt one' bash "$LEDGER" burn 1 "$LG"
+  expect_no_output "burned item leaves the open list" 'fixture debt one' bash "$LEDGER" ls "$LG"
+  expect_output "burned item recorded, dated, struck through" '~~\[High\] fixture debt one~~ burned [0-9]{4}-[0-9]{2}-[0-9]{2}' cat "$LG"
+  expect_output "surviving item renumbered to 1" '1: \[Low\] fixture debt two' bash "$LEDGER" ls "$LG"
+  expect_exit "validate passes a well-formed ledger" 0 bash "$LEDGER" validate "$LG"
+  printf -- '- [Urgent] bad label\n' >> "$LG"
+  expect_exit "validate catches bad labels" 1 bash "$LEDGER" validate "$LG"
+  expect_exit "ls fails without a ledger" 1 bash "$LEDGER" ls "$FIX/nowhere.md"
+  expect_exit "unknown command exits 1" 1 bash "$LEDGER" frobnicate
+else
+  skip "ledger suite (ledger.sh not found)"
 fi
 
 say ""
