@@ -184,3 +184,86 @@ make verify # run the verifier against this repo
 ```
 
 The selftest proves the verifier with real fixture projects — green and red suites for every supported toolchain, package-manager detection, CI-workflow allowlisting, JSON mode, the bootstrapper, and the ledger manager. Fixtures that need absent tools skip with a declaration, exactly as the skill prescribes.
+
+## FAQ
+
+**Does it work with my agent?**
+If your agent loads skills from `~/.claude/skills/`, `~/.config/opencode/skills/`, or `~/.agents/skills/` — yes. That covers opencode, Claude Code, and every `.agents`-convention reader. The toolkit scripts also work standalone with no agent at all.
+
+**Is it free? Where's the catch?**
+MIT licensed, no telemetry, no network calls, no dependencies. The "catch" is that it holds your agent to a bar that takes longer to pass.
+
+**Why does skills.sh show lowercase `imranshiundu/ocd`?**
+skills.sh canonicalizes repo names to lowercase; GitHub is case-insensitive for redirects. Same skill, same install command either way.
+
+**Can I use verify.sh without installing the skill?**
+Yes — `ocdify.sh` copies a standalone verifier into any project. It reports `standalone` via `--version` and won't track skill versions until you re-ocdify (`-f`).
+
+**Does it run on Windows?**
+The scripts are bash. Use WSL, Git Bash, or MSYS. Native PowerShell is not supported (yet — see the Debt Ledger).
+
+**What if my project has no lint/tests at all?**
+The verifier exits `2` — untestable — and says so loudly. That exit code is itself the finding: per the skill, the minimum tooling (lint + tests) is part of any change that touches code.
+
+**How does an agent know when to use this?**
+The skill's frontmatter description triggers it at session start, before claiming any work done, and on any mention of code quality, verification, honesty, receipts, or debt. The invocation phrases are in the skill text.
+
+## Troubleshooting
+
+**The skill didn't load after install.** Skills load at session start; restart the agent session. `make install AGENT=claude` prints where it landed — verify `SKILL.md` exists there.
+
+**`verify.sh` exits 2 on my repo.** No verification commands were detected: no package.json scripts, no Makefile/justfile targets, none of the supported config files, no allowlisted workflow commands. Add the minimum (a lint script and a test) — or ledger the gap deliberately.
+
+**"falling back to npm (declared)" on my pnpm project.** Your lockfile says pnpm but the `pnpm` binary isn't on the machine's PATH. Install pnpm (`npm i -g pnpm`) and re-run — the fallback is a declared compromise, not a silent switch.
+
+**The CI-workflow pass ran nothing.** By design: only exact, allowlisted, single-line `run:` commands run. Multiline blocks, pipes, and variables are ignored. If your canonical command is missing from the allowlist, open an issue — widening it requires a fixture that proves the addition.
+
+**JSON mode contains an escaped mess in `tail`.** The tail is verbatim output, JSON-escaped. Exotic control characters beyond quotes, backslashes, and newlines are not fully escaped — if that bites you, open an issue with the output that broke parsing.
+
+## Development
+
+```bash
+git clone https://github.com/imranshiundu/OCD.git
+cd OCD
+make lint && make test && make verify   # the same bar CI enforces
+```
+
+Layout:
+
+```
+ocd/SKILL.md            the skill itself — the standard, in agent-readable form
+ocd/scripts/verify.sh   the mechanical bar (Zero-Error Exit Criteria)
+ocd/scripts/ocdify.sh   project bootstrapper
+ocd/scripts/ledger.sh   debt ledger maintenance
+ocd/scripts/selftest.sh fixture suite proving all of the above
+docs/                   per-script manuals
+```
+
+Adding a detector? The checklist: a fixture in `selftest.sh` (green + declared-untestable when the tool is absent), the row in the detection matrix above, a line in `docs/VERIFY.md`, and a changelog entry. A detector without fixtures is a claim without receipts — it doesn't merge.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, commit style, and the release process.
+
+## Versioning
+
+Semantic versioning; the current version lives in the frontmatter (`metadata.version` in `ocd/SKILL.md`) and in every script's `--version` output. History is in [CHANGELOG.md](CHANGELOG.md); known open problems are tracked honestly in [DEBT_LEDGER.md](DEBT_LEDGER.md). Pushing a `v*` tag publishes a GitHub release automatically, with the matching changelog section as the body.
+
+A skill is text, not a daemon: when the version changes, agents re-sync their installed arsenal on the next session (the skill text prescribes it).
+
+## Community
+
+- [Contributing](CONTRIBUTING.md) — development setup, detector checklist, commit style, releases
+- [Security policy](SECURITY.md) — reporting, scope, supply-chain posture
+- [Code of conduct](CODE_OF_CONDUCT.md) — the standard for behavior here
+- [Issues](https://github.com/imranshiundu/OCD/issues) — bugs, detector requests, allowlist proposals
+
+## Acknowledgements
+
+OCD distills and upgrades patterns from excellent opensource work:
+
+- [mattpocock/skills](https://github.com/mattpocock/skills) — the Fowler smell baseline and standards-vs-spec review axes
+- [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) — the multi-axis review, severity labels, honesty and dependency discipline
+- [cursor/plugins](https://github.com/cursor/plugins) — the thermo-nuclear code-judo ambition and structural blocking
+
+## License
+
+MIT — see [LICENSE](LICENSE).
