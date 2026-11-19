@@ -21,7 +21,7 @@ jobs:
       - name: Lint (shellcheck)
         run: shellcheck ocd/scripts/*.sh
 
-      - name: Selftest (fixture suite: verify.sh + ocdify)
+      - name: "Selftest (fixture suite: verify.sh + ocdify)"
         run: bash ocd/scripts/selftest.sh
 
       - name: Self-verify (this repo passes its own bar)
