@@ -22,10 +22,10 @@ catches canonical verification commands in projects with no detectable
 config.
 
 Usage:
-  scripts/verify.sh                     run against the current directory
-  scripts/verify.sh /path/to/project    run against another project
-  OCD_TAIL_LINES=40 scripts/verify.sh   longer verbatim receipts
-  scripts/verify.sh -h                  this help
+  verify.sh                            run against the current directory
+  verify.sh /path/to/project           run against another project
+  OCD_TAIL_LINES=40 verify.sh          longer verbatim receipts
+  verify.sh -h                         this help
 
 Exit codes:
   0  all detected commands green

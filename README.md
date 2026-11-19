@@ -1,5 +1,9 @@
 # OCD — Obsessive Code Discipline
 
+[![CI](https://github.com/imranshiundu/OCD/actions/workflows/ci.yml/badge.svg)](https://github.com/imranshiundu/OCD/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![skills.sh](https://img.shields.io/badge/skills.sh-imranshiundu%2Focd-blue)](https://www.skills.sh/imranshiundu/ocd)
+
 **Agent skill: agents that don't sleep until the code is clean, the truth is told, and the project wins.**
 
 OCD is a zero-tolerance standard for coding agents. It makes agents keep code clean and actually working — at any scale, from a 50-line script to an enterprise system — fix problems without being asked, tell the hard truth instead of flattering, and install/upgrade the skills their project needs. Opensource. Anyone can use it.
