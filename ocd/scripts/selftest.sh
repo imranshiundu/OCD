@@ -362,6 +362,21 @@ if [ -f "$OCDIFY" ]; then
   bash "$OCDIFY" "$FIX" >/dev/null 2>&1
   expect_exit "--check on an ocdified project exits 0" 0 bash "$OCDIFY" "$FIX" -c
   expect_output "--check confirms compliance" 'compliant' bash "$OCDIFY" "$FIX" -c
+
+  new_fixture
+  expect_output "--make creates a Makefile with a verify target" 'created: .*Makefile with a verify target' bash "$OCDIFY" "$FIX" -m
+  expect_exit "--make is idempotent" 0 bash "$OCDIFY" "$FIX" -m
+  if grep -q '^verify:' "$FIX/Makefile"; then ok "verify target landed"; else bad "verify target landed"; fi
+
+  new_fixture
+  printf 'build:\n\t@true\n' >"$FIX/Makefile"
+  expect_output "--make appends to an existing Makefile" 'appended: verify target' bash "$OCDIFY" "$FIX" -m
+  expect_exit "appending is idempotent" 0 bash "$OCDIFY" "$FIX" -m
+  if grep -q '^verify:' "$FIX/Makefile"; then ok "existing Makefile kept its targets"; else bad "existing Makefile kept its targets"; fi
+
+  new_fixture
+  printf 'verify:\n\t@true\n' >"$FIX/Makefile"
+  expect_output "--make never duplicates a verify target" 'skipped: Makefile already has a verify target' bash "$OCDIFY" "$FIX" -m
 else
   skip "ocdify suite (ocdify.sh not found)"
 fi

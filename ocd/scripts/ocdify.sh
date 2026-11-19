@@ -9,6 +9,7 @@ Usage:
   ocd/scripts/ocdify.sh /path/to/project       install verifier + ledger
   ocd/scripts/ocdify.sh /path/to/project -f    replace an existing verifier copy
   ocd/scripts/ocdify.sh /path/to/project -c    check only — plan, touch nothing
+  ocd/scripts/ocdify.sh /path/to/project -m    also wire a verify target into the Makefile
   ocd/scripts/ocdify.sh -h                     this help
   ocd/scripts/ocdify.sh --version              print version and exit
 
@@ -17,7 +18,9 @@ What it does:
      (an existing copy is kept — pass -f to replace it)
   2. Creates <project>/DEBT_LEDGER.md from the OCD template if missing
      (an existing ledger is never touched, even with -f — it is the owner's data)
-  3. Prints what was installed, what was skipped, and how to wire it up
+  3. With -m: wires a verify target into <project>/Makefile
+     (creates the Makefile if missing; never touches one that already has the target)
+  4. Prints what was installed, what was skipped, and how to wire it up
 
 Exit codes:
   0  project is OCD-compliant (changes made, or already compliant)
@@ -28,6 +31,7 @@ EOF
 
 FORCE=0
 CHECK=0
+WIRE_MAKE=0
 PROJECT=""
 VERSION="standalone"
 [ -f "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" ] && VERSION="$(sed -n 's/^  version: "\(.*\)"/\1/p' "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" 2>/dev/null)"
@@ -38,6 +42,7 @@ for arg in "$@"; do
     --version|-V) printf 'ocdify.sh (ocd %s)\n' "$VERSION"; exit 0 ;;
     -f|--force) FORCE=1 ;;
     -c|--check) CHECK=1 ;;
+    -m|--make) WIRE_MAKE=1 ;;
     -*) printf 'ocdify.sh: unknown flag %s\n' "$arg" >&2; usage >&2; exit 1 ;;
     *) if [ -n "$PROJECT" ]; then
          printf 'ocdify.sh: one project path only (got both %s and %s)\n' "$PROJECT" "$arg" >&2
@@ -79,6 +84,17 @@ if [ "$CHECK" -eq 1 ]; then
     printf 'would create: %s/DEBT_LEDGER.md\n' "$PROJECT"
     NEED=1
   fi
+  if [ "$WIRE_MAKE" -eq 1 ]; then
+    if [ ! -f "$PROJECT/Makefile" ]; then
+      printf 'would create: %s/Makefile with a verify target\n' "$PROJECT"
+      NEED=1
+    elif grep -q '^verify:' "$PROJECT/Makefile"; then
+      printf 'ok: %s/Makefile already has a verify target\n' "$PROJECT"
+    else
+      printf 'would append: verify target to %s/Makefile\n' "$PROJECT"
+      NEED=1
+    fi
+  fi
   if [ "$NEED" -eq 0 ]; then
     printf 'compliant — nothing to do\n'
     exit 0
@@ -115,7 +131,21 @@ EOF
   printf 'created: %s/DEBT_LEDGER.md\n' "$PROJECT"
 fi
 
-# 3. How to wire it up.
+# 3. Optional: wire a verify target into the Makefile.
+if [ "$WIRE_MAKE" -eq 1 ]; then
+  if [ ! -f "$PROJECT/Makefile" ]; then
+    printf 'verify:\n\tbash scripts/verify.sh .\n' >"$PROJECT/Makefile"
+    printf 'created: %s/Makefile with a verify target\n' "$PROJECT"
+  elif grep -q '^verify:' "$PROJECT/Makefile"; then
+    printf 'skipped: Makefile already has a verify target\n'
+  else
+    [ -n "$(tail -c 1 "$PROJECT/Makefile")" ] && printf '\n' >>"$PROJECT/Makefile"
+    printf 'verify:\n\tbash scripts/verify.sh .\n' >>"$PROJECT/Makefile"
+    printf 'appended: verify target to %s/Makefile\n' "$PROJECT"
+  fi
+fi
+
+# 4. How to wire it up.
 printf '\nNext moves:\n'
 printf '  cd %s && bash scripts/verify.sh .    # run the mechanical bar\n' "$PROJECT"
 printf '  # optional Makefile target:\n'
