@@ -63,7 +63,14 @@ case "$cmd" in
       printf '%s\n' "$TEMPLATE" > "$path"
       printf 'created: %s\n' "$path"
     fi
-    printf -- '- %s\n' "$text" >> "$path"
+    if grep -q '^## Burned' "$path"; then
+      # Insert before the Burned section — new items stay in the open list.
+      tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-ledger.XXXXXX")"
+      awk -v item="- $text" '/^## Burned/ && !ins { print item; print ""; ins = 1 } { print }' "$path" > "$tmp"
+      mv "$tmp" "$path"
+    else
+      printf -- '- %s\n' "$text" >> "$path"
+    fi
     printf 'added to %s: %s\n' "$path" "$text"
     ;;
 

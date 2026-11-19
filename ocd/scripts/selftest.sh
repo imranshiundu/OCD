@@ -451,6 +451,16 @@ if [ -f "$LEDGER" ]; then
   expect_exit "validate catches bad labels" 1 bash "$LEDGER" validate "$LG"
   expect_exit "ls fails without a ledger" 1 bash "$LEDGER" ls "$FIX/nowhere.md"
   expect_exit "unknown command exits 1" 1 bash "$LEDGER" frobnicate
+
+  # Regression: add-after-burn must land in the open list, not the Burned section.
+  new_fixture
+  LG2="$FIX/DEBT_LEDGER.md"
+  bash "$LEDGER" add "[High] first" "$LG2" >/dev/null 2>&1
+  bash "$LEDGER" burn 1 "$LG2" >/dev/null 2>&1
+  bash "$LEDGER" add "[Medium] after burn" "$LG2" >/dev/null 2>&1
+  expect_output "add after burn stays in the open list" '1: \[Medium\] after burn' bash "$LEDGER" ls "$LG2"
+  expect_no_output "the Burned section keeps its original item" 'first~~ burned' bash "$LEDGER" ls "$LG2"
+  if awk '/^## Burned/{f=1} f && /after burn/' "$LG2" | grep -q .; then bad "new item leaked into the Burned section"; else ok "new item leaked into the Burned section"; fi
 else
   skip "ledger suite (ledger.sh not found)"
 fi
