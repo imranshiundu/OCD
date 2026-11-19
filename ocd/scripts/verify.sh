@@ -14,7 +14,7 @@ verify.sh — the OCD Zero-Error Exit Criteria, mechanically enforced.
 
 Detects lint / typecheck / test / build commands from the project's own
 config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod,
-pyproject.toml, pom.xml, build.gradle), follows the project's own package
+pyproject.toml, pom.xml, build.gradle, composer.json), follows the project's own package
 manager (npm/pnpm/yarn/bun via lockfile, Maven/Gradle via wrapper), runs
 each command once, and prints receipts: the command, its exit code, and
 the verbatim tail of its output. A conservative GitHub-workflow pass
@@ -224,6 +224,16 @@ if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
     run "check (gradle)" "gradle check" gradle check
   else
     note 'gradle build file found but no ./gradlew or gradle on PATH — gradle UNTESTED'
+  fi
+fi
+
+if [ -f composer.json ]; then
+  if has composer && grep -q '"test"[[:space:]]*:' composer.json; then
+    run "test (composer)" "composer run test" composer run test
+  elif has composer; then
+    note 'composer.json found but no scripts.test defined — composer UNTESTED'
+  else
+    note 'composer.json found but composer not on PATH — UNTESTED'
   fi
 fi
 

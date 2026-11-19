@@ -223,6 +223,24 @@ else
   skip "gradle-absent fixture (gradle present on this machine)"
 fi
 
+if ! command -v composer >/dev/null 2>&1; then
+  new_fixture
+  printf '{ "scripts": { "test": "echo ok" } }\n' >"$FIX/composer.json"
+  expect_exit "composer.json without composer exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"
+  expect_output "composer gap declared" 'composer.*UNTESTED' bash "$VERIFY" "$FIX"
+else
+  skip "composer-absent fixture (composer present on this machine)"
+fi
+
+if command -v composer >/dev/null 2>&1; then
+  new_fixture
+  printf '{ "scripts": { "test": "echo ok" } }\n' >"$FIX/composer.json"
+  expect_exit "composer project green via scripts.test" 0 bash "$VERIFY" "$FIX"
+  expect_output "composer run test labeled" 'test \(composer\)' bash "$VERIFY" "$FIX"
+else
+  skip "composer green fixture (composer missing on this machine)"
+fi
+
 if python3 -m pytest --version >/dev/null 2>&1; then
   new_fixture
   mkdir -p "$FIX/.github/workflows" "$FIX/tests"
