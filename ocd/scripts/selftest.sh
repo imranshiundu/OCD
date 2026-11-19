@@ -242,19 +242,19 @@ fi
 if [ -f "$OCDIFY" ]; then
   new_fixture
   expect_exit "ocdify a bare project" 0 bash "$OCDIFY" "$FIX"
-  [ -f "$FIX/scripts/verify.sh" ] && ok "ocdify installed the verifier" || bad "ocdify installed the verifier"
-  [ -f "$FIX/DEBT_LEDGER.md" ] && ok "ocdify created the Debt Ledger" || bad "ocdify created the Debt Ledger"
+  if [ -f "$FIX/scripts/verify.sh" ]; then ok "ocdify installed the verifier"; else bad "ocdify installed the verifier"; fi
+  if [ -f "$FIX/DEBT_LEDGER.md" ]; then ok "ocdify created the Debt Ledger"; else bad "ocdify created the Debt Ledger"; fi
   expect_output "install receipt printed" 'installed: .*scripts/verify\.sh' bash "$OCDIFY" "$FIX" -f
 
   ledger_before="$(cat "$FIX/DEBT_LEDGER.md")"
   expect_exit "ocdify is idempotent" 0 bash "$OCDIFY" "$FIX"
   expect_output "re-run skips the verifier with a receipt" 'skipped: .*verify\.sh already exists' bash "$OCDIFY" "$FIX"
   expect_output "re-run never touches the ledger" 'DEBT_LEDGER\.md already exists' bash "$OCDIFY" "$FIX"
-  [ "$ledger_before" = "$(cat "$FIX/DEBT_LEDGER.md")" ] && ok "ledger content untouched on re-run" || bad "ledger content untouched on re-run"
+  if [ "$ledger_before" = "$(cat "$FIX/DEBT_LEDGER.md")" ]; then ok "ledger content untouched on re-run"; else bad "ledger content untouched on re-run"; fi
 
   printf 'junk\n' >"$FIX/scripts/verify.sh"
   expect_exit "ocdify -f replaces a broken verifier" 0 bash "$OCDIFY" "$FIX" -f
-  cmp -s "$FIX/scripts/verify.sh" "$VERIFY" && ok "-f restored the real verifier" || bad "-f restored the real verifier"
+  if cmp -s "$FIX/scripts/verify.sh" "$VERIFY"; then ok "-f restored the real verifier"; else bad "-f restored the real verifier"; fi
 
   expect_exit "ocdify rejects a missing directory" 1 bash "$OCDIFY" "/nonexistent-dir-xyz"
   expect_exit "ocdify with no arguments exits 1" 1 bash "$OCDIFY"
