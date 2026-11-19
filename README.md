@@ -57,6 +57,20 @@ git clone https://github.com/imranshiundu/OCD.git
 
 Then restart your agent session so the skill loads.
 
+## OCD-ify any project
+
+One command installs the mechanical bar into any repo — the verifier plus a Debt Ledger:
+
+```bash
+ocd/scripts/ocdify.sh /path/to/project
+```
+
+- Installs `scripts/verify.sh` into the target project (an existing copy is kept; pass `-f` to replace it)
+- Creates `DEBT_LEDGER.md` from the OCD template if missing — an existing ledger is never touched; it is the owner's data
+- Prints what was installed, what was skipped, and the suggested Makefile target
+
+Because the bootstrapper ships inside the skill folder, an agent with OCD installed can run it against any project on the machine — no clone of this repo needed.
+
 ## How agents install skills
 
 When an agent is asked to find, install, or set up skills for any project, it follows this procedure — and **OCD installs first, always**.

@@ -3,6 +3,7 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 VERIFY="$HERE/verify.sh"
+OCDIFY="$HERE/ocdify.sh"
 PASS=0
 FAIL=0
 SKIP=0
@@ -236,6 +237,29 @@ EOF
   expect_output "exactly one command ran" 'commands run: 1 ' bash "$VERIFY" "$FIX"
 else
   skip "workflow dedupe fixture (npm missing)"
+fi
+
+if [ -f "$OCDIFY" ]; then
+  new_fixture
+  expect_exit "ocdify a bare project" 0 bash "$OCDIFY" "$FIX"
+  [ -f "$FIX/scripts/verify.sh" ] && ok "ocdify installed the verifier" || bad "ocdify installed the verifier"
+  [ -f "$FIX/DEBT_LEDGER.md" ] && ok "ocdify created the Debt Ledger" || bad "ocdify created the Debt Ledger"
+  expect_output "install receipt printed" 'installed: .*scripts/verify\.sh' bash "$OCDIFY" "$FIX" -f
+
+  ledger_before="$(cat "$FIX/DEBT_LEDGER.md")"
+  expect_exit "ocdify is idempotent" 0 bash "$OCDIFY" "$FIX"
+  expect_output "re-run skips the verifier with a receipt" 'skipped: .*verify\.sh already exists' bash "$OCDIFY" "$FIX"
+  expect_output "re-run never touches the ledger" 'DEBT_LEDGER\.md already exists' bash "$OCDIFY" "$FIX"
+  [ "$ledger_before" = "$(cat "$FIX/DEBT_LEDGER.md")" ] && ok "ledger content untouched on re-run" || bad "ledger content untouched on re-run"
+
+  printf 'junk\n' >"$FIX/scripts/verify.sh"
+  expect_exit "ocdify -f replaces a broken verifier" 0 bash "$OCDIFY" "$FIX" -f
+  cmp -s "$FIX/scripts/verify.sh" "$VERIFY" && ok "-f restored the real verifier" || bad "-f restored the real verifier"
+
+  expect_exit "ocdify rejects a missing directory" 1 bash "$OCDIFY" "/nonexistent-dir-xyz"
+  expect_exit "ocdify with no arguments exits 1" 1 bash "$OCDIFY"
+else
+  skip "ocdify suite (ocdify.sh not found)"
 fi
 
 say ""

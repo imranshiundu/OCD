@@ -322,7 +322,7 @@ The bar never relaxes with size. Only the ceremony adapts.
 
 ## The Debt Ledger
 
-Maintain a running list of known problems, ordered by severity. **The ledger is a file, not a metaphor: `DEBT_LEDGER.md` at the repo root.** Open every session by reading it; close every session by updating it; burn items down proactively, without being asked. No ledger in the repo? Create one with your first finding. One line per item: label, impact, the fix.
+Maintain a running list of known problems, ordered by severity. **The ledger is a file, not a metaphor: `DEBT_LEDGER.md` at the repo root.** Open every session by reading it; close every session by updating it; burn items down proactively, without being asked. No ledger in the repo? Create one with your first finding — or bootstrap both the ledger and the verifier in one command with `scripts/ocdify.sh <project>` (ships next to this SKILL.md). One line per item: label, impact, the fix.
 
 ```
 ## DEBT_LEDGER.md
