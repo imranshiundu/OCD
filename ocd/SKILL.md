@@ -144,7 +144,7 @@ Do the hardest, most uncertain part first — not last. Laziness hides in "I'll 
 You may not claim work is done until **all** of this is true:
 
 1. **Detect the verification commands** from `package.json` scripts, `Makefile`, `justfile`, or CI config: lint, typecheck, tests, build.
-2. **Run them all — mechanically.** Use `ocd/scripts/verify.sh` — it ships inside this skill, so every installed copy has it (`scripts/` sits next to this SKILL.md); the minimal loop below is the fallback when even that is unavailable. Fix what fails. Re-run. Repeat until green. A red suite plus the words "done" is a lie.
+2. **Run them all — mechanically.** Use `scripts/verify.sh` — it ships inside this skill, so every installed copy has it; add `--json` when you need machine-readable receipts; the minimal loop below is the fallback when even that is unavailable. Fix what fails. Re-run. Repeat until green. A red suite plus the words "done" is a lie.
 3. **Zero tolerated errors.** No `@ts-ignore`/`eslint-disable`/skipped tests/ignored warnings added by you to make the output green.
 4. **Fresh-eyes pass.** Re-read your diff as if reviewing a stranger's code. Would you approve it? If not, fix it.
 5. **Manual verification for anything visible.** Run it. Screenshot it. Before/after. "It compiles" is not "it works".
@@ -322,7 +322,7 @@ The bar never relaxes with size. Only the ceremony adapts.
 
 ## The Debt Ledger
 
-Maintain a running list of known problems, ordered by severity. **The ledger is a file, not a metaphor: `DEBT_LEDGER.md` at the repo root.** Open every session by reading it; close every session by updating it; burn items down proactively, without being asked. No ledger in the repo? Create one with your first finding — or bootstrap both the ledger and the verifier in one command with `scripts/ocdify.sh <project>` (ships next to this SKILL.md). One line per item: label, impact, the fix.
+Maintain a running list of known problems, ordered by severity. **The ledger is a file, not a metaphor: `DEBT_LEDGER.md` at the repo root.** Open every session by reading it; close every session by updating it; burn items down proactively, without being asked. No ledger in the repo? Create one with your first finding — or bootstrap both the ledger and the verifier in one command with `scripts/ocdify.sh <project>` (`-c` to plan without touching, `-m` to also wire a `make verify` target). Keep the file mechanically honest with `scripts/ledger.sh` — `add "[High] finding"`, `ls`, `burn <n>`, `validate` — all shipping next to this SKILL.md. One line per item: label, impact, the fix.
 
 ```
 ## DEBT_LEDGER.md
