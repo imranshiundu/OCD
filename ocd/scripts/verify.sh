@@ -266,8 +266,14 @@ if { [ -f pyproject.toml ] || [ -f setup.py ]; } && has python3; then
       note 'ruff configured but not installed — lint UNTESTED'
     fi
   fi
-  if python3 -m pytest --version >/dev/null 2>&1; then
+  POETRY_DONE=0
+  if [ -f poetry.lock ] && has poetry; then
+    run "test (poetry run pytest)" "poetry run pytest -q" poetry run pytest -q
+    POETRY_DONE=1
+  fi
+  if [ "$POETRY_DONE" -eq 0 ] && python3 -m pytest --version >/dev/null 2>&1; then
     if [ -d tests ] || find . -maxdepth 3 -name 'test_*.py' -not -path '*/node_modules/*' -not -path '*/.venv/*' -print -quit 2>/dev/null | grep -q .; then
+      [ -f poetry.lock ] && note 'poetry.lock found but poetry not on PATH — falling back to python3 -m pytest (declared)'
       run "test (pytest)" "python3 -m pytest -q" python3 -m pytest -q
     fi
   fi

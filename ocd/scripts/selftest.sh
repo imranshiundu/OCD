@@ -268,6 +268,19 @@ else
   skip "cmake green fixture (cmake missing on this machine)"
 fi
 
+if ! command -v poetry >/dev/null 2>&1 && python3 -m pytest --version >/dev/null 2>&1; then
+  new_fixture
+  printf '[project]\nname = "fixture"\nversion = "0.0.1"\n' >"$FIX/pyproject.toml"
+  : >"$FIX/poetry.lock"
+  mkdir -p "$FIX/tests"
+  printf 'def test_ok():\n    assert True\n' >"$FIX/tests/test_ok.py"
+  expect_exit "poetry.lock without poetry falls back to plain pytest, green" 0 bash "$VERIFY" "$FIX"
+  expect_output "the fallback is declared" 'falling back to python3 -m pytest \(declared\)' bash "$VERIFY" "$FIX"
+  expect_output "plain pytest really ran" 'test \(pytest\)' bash "$VERIFY" "$FIX"
+else
+  skip "poetry-absent fallback fixture (needs pytest and no poetry)"
+fi
+
 if python3 -m pytest --version >/dev/null 2>&1; then
   new_fixture
   mkdir -p "$FIX/.github/workflows" "$FIX/tests"
