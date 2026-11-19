@@ -241,6 +241,15 @@ else
   skip "composer green fixture (composer missing on this machine)"
 fi
 
+if ! command -v deno >/dev/null 2>&1; then
+  new_fixture
+  printf '{ "lint": {}, "test": {} }\n' >"$FIX/deno.json"
+  expect_exit "deno.json without deno exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"
+  expect_output "deno gap declared" 'deno.*UNTESTED' bash "$VERIFY" "$FIX"
+else
+  skip "deno-absent fixture (deno present on this machine)"
+fi
+
 if python3 -m pytest --version >/dev/null 2>&1; then
   new_fixture
   mkdir -p "$FIX/.github/workflows" "$FIX/tests"

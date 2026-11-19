@@ -14,7 +14,7 @@ verify.sh — the OCD Zero-Error Exit Criteria, mechanically enforced.
 
 Detects lint / typecheck / test / build commands from the project's own
 config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod,
-pyproject.toml, pom.xml, build.gradle, composer.json), follows the project's own package
+pyproject.toml, pom.xml, build.gradle, composer.json, deno.json), follows the project's own package
 manager (npm/pnpm/yarn/bun via lockfile, Maven/Gradle via wrapper), runs
 each command once, and prints receipts: the command, its exit code, and
 the verbatim tail of its output. A conservative GitHub-workflow pass
@@ -234,6 +234,15 @@ if [ -f composer.json ]; then
     note 'composer.json found but no scripts.test defined — composer UNTESTED'
   else
     note 'composer.json found but composer not on PATH — UNTESTED'
+  fi
+fi
+
+if [ -f deno.json ] || [ -f deno.jsonc ]; then
+  if has deno; then
+    run "lint (deno lint)" "deno lint" deno lint
+    run "test (deno test)" "deno test" deno test
+  else
+    note 'deno.json found but deno not on PATH — UNTESTED'
   fi
 fi
 
