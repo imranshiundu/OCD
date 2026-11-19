@@ -8,6 +8,7 @@ ocdify.sh — bootstrap OCD into any project: mechanical verifier + Debt Ledger.
 Usage:
   ocd/scripts/ocdify.sh /path/to/project       install verifier + ledger
   ocd/scripts/ocdify.sh /path/to/project -f    replace an existing verifier copy
+  ocd/scripts/ocdify.sh /path/to/project -c    check only — plan, touch nothing
   ocd/scripts/ocdify.sh -h                     this help
   ocd/scripts/ocdify.sh --version              print version and exit
 
@@ -21,10 +22,12 @@ What it does:
 Exit codes:
   0  project is OCD-compliant (changes made, or already compliant)
   1  usage error, target missing, or source verifier not found
+  3  --check only: the project needs work (nothing was touched)
 EOF
 }
 
 FORCE=0
+CHECK=0
 PROJECT=""
 VERSION="standalone"
 [ -f "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" ] && VERSION="$(sed -n 's/^  version: "\(.*\)"/\1/p' "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" 2>/dev/null)"
@@ -34,6 +37,7 @@ for arg in "$@"; do
     -h|--help) usage; exit 0 ;;
     --version|-V) printf 'ocdify.sh (ocd %s)\n' "$VERSION"; exit 0 ;;
     -f|--force) FORCE=1 ;;
+    -c|--check) CHECK=1 ;;
     -*) printf 'ocdify.sh: unknown flag %s\n' "$arg" >&2; usage >&2; exit 1 ;;
     *) if [ -n "$PROJECT" ]; then
          printf 'ocdify.sh: one project path only (got both %s and %s)\n' "$PROJECT" "$arg" >&2
@@ -58,6 +62,28 @@ SRC="$HERE/verify.sh"
 if [ ! -f "$SRC" ]; then
   printf 'ocdify.sh: verifier not found next to me at %s\n' "$SRC" >&2
   exit 1
+fi
+
+# 0. Check mode: plan, touch nothing.
+if [ "$CHECK" -eq 1 ]; then
+  NEED=0
+  if [ -f "$PROJECT/scripts/verify.sh" ]; then
+    printf 'ok: %s/scripts/verify.sh present\n' "$PROJECT"
+  else
+    printf 'would install: %s/scripts/verify.sh\n' "$PROJECT"
+    NEED=1
+  fi
+  if [ -f "$PROJECT/DEBT_LEDGER.md" ]; then
+    printf 'ok: %s/DEBT_LEDGER.md present\n' "$PROJECT"
+  else
+    printf 'would create: %s/DEBT_LEDGER.md\n' "$PROJECT"
+    NEED=1
+  fi
+  if [ "$NEED" -eq 0 ]; then
+    printf 'compliant — nothing to do\n'
+    exit 0
+  fi
+  exit 3
 fi
 
 # 1. Install the mechanical verifier.

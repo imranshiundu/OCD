@@ -354,6 +354,14 @@ if [ -f "$OCDIFY" ]; then
 
   expect_exit "ocdify rejects a missing directory" 1 bash "$OCDIFY" "/nonexistent-dir-xyz"
   expect_exit "ocdify with no arguments exits 1" 1 bash "$OCDIFY"
+
+  new_fixture
+  expect_exit "--check on a bare project exits 3, touches nothing" 3 bash "$OCDIFY" "$FIX" -c
+  if [ ! -e "$FIX/scripts" ] && [ ! -e "$FIX/DEBT_LEDGER.md" ]; then ok "--check wrote nothing"; else bad "--check wrote nothing"; fi
+  expect_output "--check says what it would do" 'would install: .*scripts/verify\.sh' bash "$OCDIFY" "$FIX" -c
+  bash "$OCDIFY" "$FIX" >/dev/null 2>&1
+  expect_exit "--check on an ocdified project exits 0" 0 bash "$OCDIFY" "$FIX" -c
+  expect_output "--check confirms compliance" 'compliant' bash "$OCDIFY" "$FIX" -c
 else
   skip "ocdify suite (ocdify.sh not found)"
 fi
