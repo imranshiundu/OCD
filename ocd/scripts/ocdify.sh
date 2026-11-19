@@ -9,6 +9,7 @@ Usage:
   ocd/scripts/ocdify.sh /path/to/project       install verifier + ledger
   ocd/scripts/ocdify.sh /path/to/project -f    replace an existing verifier copy
   ocd/scripts/ocdify.sh -h                     this help
+  ocd/scripts/ocdify.sh --version              print version and exit
 
 What it does:
   1. Copies this skill's verify.sh to <project>/scripts/verify.sh
@@ -25,9 +26,13 @@ EOF
 
 FORCE=0
 PROJECT=""
+VERSION="standalone"
+[ -f "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" ] && VERSION="$(sed -n 's/^  version: "\(.*\)"/\1/p' "$(cd "$(dirname "$0")" && pwd)/../SKILL.md" 2>/dev/null)"
+[ -n "$VERSION" ] || VERSION="standalone"
 for arg in "$@"; do
   case "$arg" in
     -h|--help) usage; exit 0 ;;
+    --version|-V) printf 'ocdify.sh (ocd %s)\n' "$VERSION"; exit 0 ;;
     -f|--force) FORCE=1 ;;
     -*) printf 'ocdify.sh: unknown flag %s\n' "$arg" >&2; usage >&2; exit 1 ;;
     *) if [ -n "$PROJECT" ]; then

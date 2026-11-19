@@ -69,6 +69,11 @@ say "verify.sh selftest"
 expect_exit "help flag exits 0" 0 bash "$VERIFY" -h
 expect_output "help mentions exit codes" "Exit codes:" bash "$VERIFY" -h
 expect_exit "missing directory exits 2" 2 bash "$VERIFY" /nonexistent-dir-xyz
+expect_exit "--version exits 0 (verify.sh)" 0 bash "$VERIFY" --version
+expect_output "verify.sh --version prints a version" '[0-9]+\.[0-9]+\.[0-9]+' bash "$VERIFY" --version
+expect_exit "--version exits 0 (ocdify.sh)" 0 bash "$OCDIFY" --version
+expect_output "ocdify.sh --version prints a version" '[0-9]+\.[0-9]+\.[0-9]+' bash "$OCDIFY" --version
+expect_exit "unknown flag exits 64" 64 bash "$VERIFY" --wat .
 
 new_fixture
 expect_exit "empty project exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"

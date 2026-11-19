@@ -25,20 +25,36 @@ Usage:
   verify.sh                            run against the current directory
   verify.sh /path/to/project           run against another project
   OCD_TAIL_LINES=40 verify.sh          longer verbatim receipts
-  verify.sh -h                         this help
+  verify.sh -h                        this help
+  verify.sh --version                 print version and exit
 
 Exit codes:
   0  all detected commands green
   1  at least one command failed — fix and re-run
   2  no verification commands detected (untestable — itself a finding)
+  64 usage error (unknown flag, extra path)
 EOF
 }
 
-case "${1:-}" in
-  -h|--help) usage; exit 0 ;;
-esac
+HERE="$(cd "$(dirname "$0")" && pwd)"
+VERSION="standalone"
+[ -f "$HERE/../SKILL.md" ] && VERSION="$(sed -n 's/^  version: "\(.*\)"/\1/p' "$HERE/../SKILL.md" 2>/dev/null)"
+[ -n "$VERSION" ] || VERSION="standalone"
 
-PROJECT="${1:-.}"
+PROJECT=""
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage; exit 0 ;;
+    --version|-V) printf 'verify.sh (ocd %s)\n' "$VERSION"; exit 0 ;;
+    -*) printf 'verify.sh: unknown flag %s\n' "$arg" >&2; exit 64 ;;
+    *) if [ -n "$PROJECT" ]; then
+         printf 'verify.sh: one project path only (got both %s and %s)\n' "$PROJECT" "$arg" >&2
+         exit 64
+       fi
+       PROJECT="$arg" ;;
+  esac
+done
+[ -n "$PROJECT" ] || PROJECT="."
 if ! cd "$PROJECT" 2>/dev/null; then
   printf 'verify.sh: cannot enter %s\n' "$PROJECT" >&2
   exit 2
