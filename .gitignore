@@ -1,0 +1,21 @@
+# editors / OS
+.DS_Store
+*.swp
+.idea/
+.vscode/
+*.bak
+
+# scratch output
+*.log
+*.tmp
+tmp/
+.cache/
+
+# node (selftest fixtures are ephemeral and never committed)
+node_modules/
+
+# build artifacts
+build/
+dist/
+target/
+.ocd-build/
