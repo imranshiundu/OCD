@@ -6,6 +6,7 @@ case "$MAX_TAIL" in ''|*[!0-9]*) MAX_TAIL=15 ;; esac
 
 FAILED=0
 RAN=0
+RUN_KEYS=""
 
 usage() {
   cat <<'EOF'
@@ -13,8 +14,12 @@ verify.sh — the OCD Zero-Error Exit Criteria, mechanically enforced.
 
 Detects lint / typecheck / test / build commands from the project's own
 config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod,
-pyproject.toml), runs each one, and prints receipts: the command, its
-exit code, and the verbatim tail of its output.
+pyproject.toml, pom.xml, build.gradle), follows the project's own package
+manager (npm/pnpm/yarn/bun via lockfile, Maven/Gradle via wrapper), runs
+each command once, and prints receipts: the command, its exit code, and
+the verbatim tail of its output. A conservative GitHub-workflow pass
+catches canonical verification commands in projects with no detectable
+config.
 
 Usage:
   scripts/verify.sh                     run against the current directory
@@ -42,6 +47,17 @@ fi
 has() { command -v "$1" >/dev/null 2>&1; }
 
 run() {
+  # Dedupe: a command detected twice (package.json *and* CI config, two
+  # workflows) runs once. Package-manager aliases normalize to one key:
+  # "npm run lint", "pnpm lint" and "yarn run lint" are all js:lint.
+  local dkey
+  dkey="$(printf '%s' "$2" | sed -E 's/^(npm|pnpm|yarn|bun) (run )?/js:/')"
+  if printf '%s\n' "$RUN_KEYS" | grep -qxF -- "$dkey"; then
+    printf '── %s — duplicate of an already-run command — skipped\n' "$2"
+    return 0
+  fi
+  RUN_KEYS="$RUN_KEYS$dkey
+"
   RAN=$((RAN + 1))
   printf '\n── %s ──\n$ %s\n' "$1" "$2"
   local tmp code
@@ -58,31 +74,48 @@ run() {
   [ "$code" -eq 0 ] || FAILED=$((FAILED + 1))
 }
 
-npm_script_key() {
+js_script_key() {
   local key
   for key in "$@"; do
-    if node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts['$key'] ? 0 : 1)" 2>/dev/null; then
-      printf '%s' "$key"
-      return 0
+    if has node && node -e "process.exit(require('./package.json').scripts && require('./package.json').scripts['$key'] ? 0 : 1)" 2>/dev/null; then
+      printf '%s' "$key"; return 0
+    elif has bun && bun -e "const s=require('./package.json').scripts||{};process.exit(s['$key']?0:1)" 2>/dev/null; then
+      printf '%s' "$key"; return 0
+    elif grep -q "\"$key\":" package.json; then
+      printf '%s' "$key"; return 0
     fi
   done
   return 1
 }
 
 if [ -f package.json ]; then
-  if has node && has npm; then
-    key="$(npm_script_key lint)" && run "lint" "npm run $key" npm run "$key"
-    key="$(npm_script_key typecheck type-check)" && run "typecheck" "npm run $key" npm run "$key"
-    key="$(npm_script_key test tests)" && run "test" "npm run $key" npm run "$key"
-    key="$(npm_script_key build)" && run "build" "npm run $key" npm run "$key"
-  elif has npm; then
-    for key in lint typecheck type-check test tests build; do
-      if grep -q "\"$key\":" package.json; then
-        run "$key" "npm run $key" npm run "$key"
-      fi
-    done
+  # The runner follows the project's own lockfile when that binary exists.
+  pm=npm
+  if [ -f pnpm-lock.yaml ] && has pnpm; then pm=pnpm
+  elif [ -f yarn.lock ] && has yarn; then pm=yarn
+  elif { [ -f bun.lockb ] || [ -f bun.lock ]; } && has bun; then pm=bun
+  elif has npm; then pm=npm
+  else pm=none; fi
+  if [ "$pm" = npm ]; then
+    [ -f pnpm-lock.yaml ] && printf 'pnpm-lock.yaml found but pnpm not on PATH — falling back to npm (declared)\n'
+    [ -f yarn.lock ] && printf 'yarn.lock found but yarn not on PATH — falling back to npm (declared)\n'
+    { [ -f bun.lockb ] || [ -f bun.lock ]; } && printf 'bun lockfile found but bun not on PATH — falling back to npm (declared)\n'
+  fi
+  if [ "$pm" = none ]; then
+    printf 'package.json found but no package manager on PATH (npm/pnpm/yarn/bun) — its scripts are UNTESTED\n'
   else
-    printf 'package.json found but no node/npm on PATH — its scripts are UNTESTED\n'
+    js_run() {  # js_run <label> <script-key>
+      case "$pm" in
+        pnpm) run "$1" "pnpm run $2" pnpm run "$2" ;;
+        yarn) run "$1" "yarn run $2" yarn run "$2" ;;
+        bun)  run "$1" "bun run $2" bun run "$2" ;;
+        *)    run "$1" "npm run $2" npm run "$2" ;;
+      esac
+    }
+    key="$(js_script_key lint)" && js_run lint "$key"
+    key="$(js_script_key typecheck type-check)" && js_run typecheck "$key"
+    key="$(js_script_key test tests)" && js_run test "$key"
+    key="$(js_script_key build)" && js_run build "$key"
   fi
 fi
 
@@ -122,6 +155,28 @@ if [ -f go.mod ] && has go; then
   run "build (go build)" "go build ./..." go build ./...
 fi
 
+if [ -f pom.xml ]; then
+  if [ -x ./mvnw ]; then
+    run "test (maven wrapper)" "./mvnw -B test" ./mvnw -B test
+    printf '(mvn test compiles and tests the project — no separate build step)\n'
+  elif has mvn; then
+    run "test (maven)" "mvn -B test" mvn -B test
+    printf '(mvn test compiles and tests the project — no separate build step)\n'
+  else
+    printf 'pom.xml found but no ./mvnw or mvn on PATH — maven UNTESTED\n'
+  fi
+fi
+
+if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
+  if [ -x ./gradlew ]; then
+    run "check (gradle wrapper)" "./gradlew check" ./gradlew check
+  elif has gradle; then
+    run "check (gradle)" "gradle check" gradle check
+  else
+    printf 'gradle build file found but no ./gradlew or gradle on PATH — gradle UNTESTED\n'
+  fi
+fi
+
 if { [ -f pyproject.toml ] || [ -f setup.py ]; } && has python3; then
   if [ -f ruff.toml ] || [ -f .ruff.toml ] || grep -q '\[tool\.ruff\]' pyproject.toml 2>/dev/null; then
     if has ruff; then
@@ -135,6 +190,32 @@ if { [ -f pyproject.toml ] || [ -f setup.py ]; } && has python3; then
       run "test (pytest)" "python3 -m pytest -q" python3 -m pytest -q
     fi
   fi
+fi
+
+# ── CI workflows: conservative safety net for projects with no detectable config ──
+# Single-line `run:` commands are extracted from .github/workflows/*.yml|*.yaml,
+# and only exact matches from a fixed allowlist of canonical verification commands
+# are run — the same commands the project's own CI runs. Multiline blocks, pipes,
+# variables, and anything else are skipped by design. Runs last so duplicates
+# (also detected via package.json/Makefile/...) are deduped.
+ci_allowlist='^(npm run |pnpm run |yarn run |bun run |npm |pnpm |yarn |bun )(lint|typecheck|type-check|test|tests|build)$|^(make|just) (lint|typecheck|test|build)$|^pytest( -q)?$|^python3? -m pytest(-q)?$|^ruff check( \.)?$|^eslint \.$|^tsc --noEmit$|^(go vet|go test|go build) \./\.\.\.$|^cargo (test|fmt --check)$|^deno (lint|test)$'
+if [ -d .github/workflows ]; then
+  ci_cmds="$(
+    for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+      [ -f "$wf" ] || continue
+      sed -n 's/^[[:space:]]*-\{0,1\}[[:space:]]*run:[[:space:]]*//p' "$wf"
+    done | sort -u
+  )"
+  while IFS= read -r cmd; do
+    [ -n "$cmd" ] || continue
+    printf '%s\n' "$cmd" | grep -qE "$ci_allowlist" || continue
+    case "$cmd" in
+      *build*)                      run "build (ci-workflow)"      "$cmd" sh -c "$cmd" ;;
+      *typecheck*|*type-check*|tsc*) run "typecheck (ci-workflow)" "$cmd" sh -c "$cmd" ;;
+      *test*)                       run "test (ci-workflow)"       "$cmd" sh -c "$cmd" ;;
+      *)                            run "lint (ci-workflow)"       "$cmd" sh -c "$cmd" ;;
+    esac
+  done <<< "$ci_cmds"
 fi
 
 printf '\n════ verify.sh summary ════\n'
