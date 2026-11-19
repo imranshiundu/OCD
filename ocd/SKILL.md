@@ -3,7 +3,7 @@ name: ocd
 description: "Obsessive Code Discipline: a zero-tolerance standard for code cleanliness, correctness, and honesty. Use at the start of every session in any codebase (small, huge, or enterprise), before writing or changing code, before claiming any work is done, and whenever the user mentions OCD, clean code, errors, bugs, code quality, proactive fixes, honesty, lying, laziness, sycophancy, evidence, receipts, verification, project ownership, or installing/upgrading skills."
 license: MIT
 metadata:
-  version: "1.2.0"
+  version: "1.3.0"
 ---
 
 # OCD — Obsessive Code Discipline
