@@ -2,7 +2,33 @@
 
 All notable changes to the OCD skill are documented here. The current version lives in the frontmatter (`metadata.version` in `ocd/SKILL.md`).
 
-## [1.2.0] — 2026-11-20
+## [1.3.0] — 2026-11-19
+
+### Added
+
+- **ledger.sh — mechanical Debt Ledger maintenance.** `add` / `ls` / `burn <n>` / `validate`. Items are labeled and listed in order; burning moves an item to a dated, struck-through `## Burned` section instead of deleting it — history remembers what was fixed and when. `add` creates the ledger from the template when missing, and inserts before the Burned section when it isn't (regression-tested).
+- **verify.sh: `--json` mode.** One JSON document on stdout — version, project, every command with label/exit code/verbatim tail, the declared notes, the summary, and the verdict. Notes that print to stdout in human mode join the document in JSON mode, so the output stays parseable. Exit codes unchanged.
+- **verify.sh / ocdify.sh: `--version` flags**, read live from the skill's frontmatter so scripts and skill can't drift silently. Standalone (ocdified) copies honestly report `standalone`.
+- **Four new detectors: `composer.json`** (`composer run test` when `scripts.test` is defined), **`deno.json`/`deno.jsonc`** (`deno lint`, `deno test`), **`CMakeLists.txt`** (configure + build into a temp dir — the project tree stays untouched), and **`poetry.lock`** (`poetry run pytest -q`, declared fallback to plain pytest when poetry is absent).
+- **ocdify.sh: `--check`** — plan without touching: exits `3` when the project needs work, `0` when compliant. CI-friendly.
+- **ocdify.sh: `-m/--make`** — wires a `verify:` Makefile target: creates the Makefile when missing, appends when it exists, never duplicates an existing target.
+- **Makefile: `help` and `install AGENT=claude|opencode|agents`** — install the skill from a clone without memorizing path tables.
+- **CI runs on ubuntu-latest and macos-latest**, with pnpm installed on the runners — the real pnpm/yarn/maven/gradle/cmake paths run in CI, not just their declared-fallback twins.
+- **Releases are automated** — pushing a `v*` tag extracts the matching CHANGELOG section and publishes the GitHub release from it; the extraction is proven against the real changelog, not assumed.
+- **Documentation, rebuilt:** README restructured (TOC, install matrix, quick start, detection matrix, FAQ, troubleshooting, development), per-script manuals in `docs/` (VERIFY, OCDIFY, LEDGER), plus CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, and issue/PR templates.
+- **selftest: 94 fixture assertions** (was 44) — JSON mode, version flags, all four new detectors, ocdify check/make modes, the full ledger suite, real-toolchain fixtures for pnpm/yarn/maven/gradle/cmake, and a regression test for add-after-burn.
+
+### Fixed
+
+- **macOS portability (bash 3.2):** negative array indices are a bash 4ism and bare `mktemp` is not portable — both fixed, proven by the macOS CI leg.
+- **verify.sh usage errors exit 64** (EX_USAGE) instead of masquerading as project failures.
+- **Makefile lints every shipped script** (glob, not a hard-coded list) and uses real tabs.
+
+### Burned from the Debt Ledger
+
+- **[Low] pnpm/yarn/Maven/Gradle green paths untested — burned.** CI now runs the real binaries on both runner OSes; the declared-skip fallbacks remain for machines without the toolchains.
+
+## [1.2.0] — 2026-11-19
 
 ### Added
 
