@@ -106,6 +106,39 @@ else
   skip "npm fixture suite"
 fi
 
+if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-json-green", "scripts": { "lint": "true", "test": "true", "build": "true" } }
+EOF
+  jtmp="$(mktemp "${TMPDIR:-/tmp}/ocd-selftest.XXXXXX")"
+  bash "$VERIFY" --json "$FIX" >"$jtmp" 2>&1
+  if python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d["result"]=="PASS" and d["summary"]["ran"]==3 and all("exit_code" in c for c in d["commands"]) else 1)' "$jtmp"; then
+    ok "json mode emits one valid, complete document"
+  else
+    bad "json mode emits one valid, complete document"
+    sed 's/^/    /' "$jtmp" | tail -n 5
+  fi
+  rm -f "$jtmp"
+
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-json-red", "scripts": { "test": "node -e 'process.exit(3)'" } }
+EOF
+  jtmp="$(mktemp "${TMPDIR:-/tmp}/ocd-selftest.XXXXXX")"
+  bash "$VERIFY" --json "$FIX" >"$jtmp" 2>&1
+  got=$?
+  if [ "$got" -eq 1 ] && python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if d["result"]=="FAIL" and d["summary"]["failed"]==1 else 1)' "$jtmp"; then
+    ok "json mode stays honest on red projects (exit 1, result FAIL)"
+  else
+    bad "json mode stays honest on red projects (exit 1, result FAIL) — got exit $got"
+    sed 's/^/    /' "$jtmp" | tail -n 5
+  fi
+  rm -f "$jtmp"
+else
+  skip "json mode suite (needs node+npm+python3)"
+fi
+
 if command -v bun >/dev/null 2>&1; then
   new_fixture
   cat >"$FIX/package.json" <<'EOF'

@@ -24,6 +24,7 @@ config.
 Usage:
   verify.sh                            run against the current directory
   verify.sh /path/to/project           run against another project
+  verify.sh --json                    machine-readable receipts (single JSON document)
   OCD_TAIL_LINES=40 verify.sh          longer verbatim receipts
   verify.sh -h                        this help
   verify.sh --version                 print version and exit
@@ -41,11 +42,13 @@ VERSION="standalone"
 [ -f "$HERE/../SKILL.md" ] && VERSION="$(sed -n 's/^  version: "\(.*\)"/\1/p' "$HERE/../SKILL.md" 2>/dev/null)"
 [ -n "$VERSION" ] || VERSION="standalone"
 
+JSON=0
 PROJECT=""
 for arg in "$@"; do
   case "$arg" in
     -h|--help) usage; exit 0 ;;
     --version|-V) printf 'verify.sh (ocd %s)\n' "$VERSION"; exit 0 ;;
+    --json) JSON=1 ;;
     -*) printf 'verify.sh: unknown flag %s\n' "$arg" >&2; exit 64 ;;
     *) if [ -n "$PROJECT" ]; then
          printf 'verify.sh: one project path only (got both %s and %s)\n' "$PROJECT" "$arg" >&2
@@ -62,6 +65,29 @@ fi
 
 has() { command -v "$1" >/dev/null 2>&1; }
 
+JSON_CMDS=""
+JSON_NOTES=""
+
+json_escape() {
+  local s="$1"
+  s="${s//\\\\/\\\\\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\t'/\\t}"
+  printf '%s' "$s"
+}
+
+note() {
+  # Informational lines (declared fallbacks, missing tooling). In JSON mode
+  # they join the document instead of polluting parseable stdout.
+  if [ "$JSON" -eq 1 ]; then
+    JSON_NOTES="$JSON_NOTES\"$(json_escape "$1")\","
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
 run() {
   # Dedupe: a command detected twice (package.json *and* CI config, two
   # workflows) runs once. Package-manager aliases normalize to one key:
@@ -69,18 +95,26 @@ run() {
   local dkey
   dkey="$(printf '%s' "$2" | sed -E 's/^(npm|pnpm|yarn|bun) (run )?/js:/')"
   if printf '%s\n' "$RUN_KEYS" | grep -qxF -- "$dkey"; then
-    printf '── %s — duplicate of an already-run command — skipped\n' "$2"
+    note "── $2 — duplicate of an already-run command — skipped"
     return 0
   fi
   RUN_KEYS="$RUN_KEYS$dkey
 "
   RAN=$((RAN + 1))
-  printf '\n── %s ──\n$ %s\n' "$1" "$2"
-  local tmp code
+  local tmp code label cmd
+  label="$1"
+  cmd="$2"
   tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-verify.XXXXXX")"
+  [ "$JSON" -eq 0 ] && printf '\n── %s ──\n$ %s\n' "$label" "$cmd"
   shift 2
   "$@" >"$tmp" 2>&1
   code=$?
+  if [ "$JSON" -eq 1 ]; then
+    JSON_CMDS="$JSON_CMDS{\"label\":\"$(json_escape "$label")\",\"command\":\"$(json_escape "$cmd")\",\"exit_code\":$code,\"tail\":\"$(json_escape "$(tail -n "$MAX_TAIL" "$tmp" 2>/dev/null)")\"},"
+    rm -f "$tmp"
+    [ "$code" -eq 0 ] || FAILED=$((FAILED + 1))
+    return 0
+  fi
   printf 'exit: %s\n' "$code"
   if [ -s "$tmp" ]; then
     printf '── last %s lines (verbatim) ──\n' "$MAX_TAIL"
@@ -113,12 +147,12 @@ if [ -f package.json ]; then
   elif has npm; then pm=npm
   else pm=none; fi
   if [ "$pm" = npm ]; then
-    [ -f pnpm-lock.yaml ] && printf 'pnpm-lock.yaml found but pnpm not on PATH — falling back to npm (declared)\n'
-    [ -f yarn.lock ] && printf 'yarn.lock found but yarn not on PATH — falling back to npm (declared)\n'
-    { [ -f bun.lockb ] || [ -f bun.lock ]; } && printf 'bun lockfile found but bun not on PATH — falling back to npm (declared)\n'
+    [ -f pnpm-lock.yaml ] && note 'pnpm-lock.yaml found but pnpm not on PATH — falling back to npm (declared)'
+    [ -f yarn.lock ] && note 'yarn.lock found but yarn not on PATH — falling back to npm (declared)'
+    { [ -f bun.lockb ] || [ -f bun.lock ]; } && note 'bun lockfile found but bun not on PATH — falling back to npm (declared)'
   fi
   if [ "$pm" = none ]; then
-    printf 'package.json found but no package manager on PATH (npm/pnpm/yarn/bun) — its scripts are UNTESTED\n'
+    note 'package.json found but no package manager on PATH (npm/pnpm/yarn/bun) — its scripts are UNTESTED'
   else
     js_run() {  # js_run <label> <script-key>
       case "$pm" in
@@ -162,7 +196,7 @@ if [ -f Cargo.toml ] && has cargo; then
     run "lint (cargo fmt --check)" "cargo fmt --check" cargo fmt --check
   fi
   run "test (cargo test)" "cargo test" cargo test
-  printf '(cargo test implies the build — no separate build step)\n'
+  note '(cargo test implies the build — no separate build step)'
 fi
 
 if [ -f go.mod ] && has go; then
@@ -174,12 +208,12 @@ fi
 if [ -f pom.xml ]; then
   if [ -x ./mvnw ]; then
     run "test (maven wrapper)" "./mvnw -B test" ./mvnw -B test
-    printf '(mvn test compiles and tests the project — no separate build step)\n'
+    note '(mvn test compiles and tests the project — no separate build step)'
   elif has mvn; then
     run "test (maven)" "mvn -B test" mvn -B test
-    printf '(mvn test compiles and tests the project — no separate build step)\n'
+    note '(mvn test compiles and tests the project — no separate build step)'
   else
-    printf 'pom.xml found but no ./mvnw or mvn on PATH — maven UNTESTED\n'
+    note 'pom.xml found but no ./mvnw or mvn on PATH — maven UNTESTED'
   fi
 fi
 
@@ -189,7 +223,7 @@ if [ -f build.gradle ] || [ -f build.gradle.kts ]; then
   elif has gradle; then
     run "check (gradle)" "gradle check" gradle check
   else
-    printf 'gradle build file found but no ./gradlew or gradle on PATH — gradle UNTESTED\n'
+    note 'gradle build file found but no ./gradlew or gradle on PATH — gradle UNTESTED'
   fi
 fi
 
@@ -198,7 +232,7 @@ if { [ -f pyproject.toml ] || [ -f setup.py ]; } && has python3; then
     if has ruff; then
       run "lint (ruff check)" "ruff check ." ruff check .
     else
-      printf 'ruff configured but not installed — lint UNTESTED\n'
+      note 'ruff configured but not installed — lint UNTESTED'
     fi
   fi
   if python3 -m pytest --version >/dev/null 2>&1; then
@@ -232,6 +266,20 @@ if [ -d .github/workflows ]; then
       *)                            run "lint (ci-workflow)"       "$cmd" sh -c "$cmd" ;;
     esac
   done <<< "$ci_cmds"
+fi
+
+result=PASS
+rc=0
+if [ "$RAN" -eq 0 ]; then
+  result=UNTESTABLE; rc=2
+elif [ "$FAILED" -gt 0 ]; then
+  result=FAIL; rc=1
+fi
+
+if [ "$JSON" -eq 1 ]; then
+  printf '{"tool":"ocd-verify","version":"%s","project":"%s","commands":[%s],"notes":[%s],"summary":{"ran":%s,"failed":%s},"result":"%s"}\n' \
+    "$(json_escape "$VERSION")" "$(json_escape "$PWD")" "${JSON_CMDS%,}" "${JSON_NOTES%,}" "$RAN" "$FAILED" "$result"
+  exit "$rc"
 fi
 
 printf '\n════ verify.sh summary ════\n'
