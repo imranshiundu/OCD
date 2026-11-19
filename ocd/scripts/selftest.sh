@@ -455,6 +455,18 @@ else
   skip "ledger suite (ledger.sh not found)"
 fi
 
+if command -v make >/dev/null 2>&1; then
+  ROOT="$(cd "$HERE/../.." && pwd)"
+  new_fixture
+  expect_exit "make install AGENT=claude installs into HOME" 0 env HOME="$FIX" make -C "$ROOT" install AGENT=claude
+  if [ -f "$FIX/.claude/skills/ocd/SKILL.md" ]; then ok "skill landed in ~/.claude/skills/ocd"; else bad "skill landed in ~/.claude/skills/ocd"; fi
+  # GNU make exits 2 when a recipe fails — the receipt of "make refused".
+  expect_exit "make install without AGENT refuses" 2 make -C "$ROOT" install
+  expect_exit "make install rejects unknown agents" 2 env HOME="$FIX" make -C "$ROOT" install AGENT=webos
+else
+  skip "make install suite (make missing on this machine)"
+fi
+
 say ""
 say "selftest summary: $PASS passed, $FAIL failed, $SKIP skipped (all skips declared)"
 [ "$FAIL" -eq 0 ] || exit 1
