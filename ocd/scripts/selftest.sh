@@ -17,14 +17,14 @@ skip() { SKIP=$((SKIP + 1)); say "  SKIP: $1 (declared — tooling not on this m
 trap '[ "${#FIXTURES[@]}" -gt 0 ] && rm -rf -- "${FIXTURES[@]}" || true' EXIT
 
 new_fixture() {
-  FIXTURES+=("$(mktemp -d)")
-  FIX="${FIXTURES[-1]}"
+  FIXTURES+=("$(mktemp -d "${TMPDIR:-/tmp}/ocd-fixture.XXXXXX")")
+  FIX="${FIXTURES[${#FIXTURES[@]}-1]}"
 }
 
 expect_exit() {
   local desc="$1" want="$2" got tmp
   shift 2
-  tmp="$(mktemp)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-selftest.XXXXXX")"
   "$@" >"$tmp" 2>&1
   got=$?
   if [ "$got" -eq "$want" ]; then
@@ -39,7 +39,7 @@ expect_exit() {
 expect_output() {
   local desc="$1" pattern="$2" tmp
   shift 2
-  tmp="$(mktemp)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-selftest.XXXXXX")"
   "$@" >"$tmp" 2>&1
   if grep -qE "$pattern" "$tmp"; then
     ok "$desc"
@@ -53,7 +53,7 @@ expect_output() {
 expect_no_output() {
   local desc="$1" pattern="$2" tmp
   shift 2
-  tmp="$(mktemp)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-selftest.XXXXXX")"
   "$@" >"$tmp" 2>&1
   if grep -qE "$pattern" "$tmp"; then
     bad "$desc — output unexpectedly contains /$pattern/"

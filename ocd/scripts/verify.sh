@@ -77,7 +77,7 @@ run() {
   RAN=$((RAN + 1))
   printf '\n── %s ──\n$ %s\n' "$1" "$2"
   local tmp code
-  tmp="$(mktemp)"
+  tmp="$(mktemp "${TMPDIR:-/tmp}/ocd-verify.XXXXXX")"
   shift 2
   "$@" >"$tmp" 2>&1
   code=$?
