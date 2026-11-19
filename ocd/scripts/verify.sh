@@ -14,7 +14,8 @@ verify.sh — the OCD Zero-Error Exit Criteria, mechanically enforced.
 
 Detects lint / typecheck / test / build commands from the project's own
 config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod,
-pyproject.toml, pom.xml, build.gradle, composer.json, deno.json), follows the project's own package
+pyproject.toml, pom.xml, build.gradle, composer.json, deno.json,
+CMakeLists.txt), follows the project's own package
 manager (npm/pnpm/yarn/bun via lockfile, Maven/Gradle via wrapper), runs
 each command once, and prints receipts: the command, its exit code, and
 the verbatim tail of its output. A conservative GitHub-workflow pass
@@ -243,6 +244,17 @@ if [ -f deno.json ] || [ -f deno.jsonc ]; then
     run "test (deno test)" "deno test" deno test
   else
     note 'deno.json found but deno not on PATH — UNTESTED'
+  fi
+fi
+
+if [ -f CMakeLists.txt ]; then
+  if has cmake; then
+    # Configure and build into a temp dir — the project tree stays untouched.
+    bdir="$(mktemp -d "${TMPDIR:-/tmp}/ocd-cmake.XXXXXX")"
+    run "build (cmake)" "cmake -S . -B $bdir && cmake --build $bdir" sh -c "cmake -S . -B '$bdir' && cmake --build '$bdir'"
+    rm -rf "$bdir"
+  else
+    note 'CMakeLists.txt found but cmake not on PATH — UNTESTED'
   fi
 fi
 

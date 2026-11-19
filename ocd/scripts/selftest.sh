@@ -250,6 +250,24 @@ else
   skip "deno-absent fixture (deno present on this machine)"
 fi
 
+if ! command -v cmake >/dev/null 2>&1; then
+  new_fixture
+  printf 'cmake_minimum_required(VERSION 3.10)\nproject(fixture)\n' >"$FIX/CMakeLists.txt"
+  expect_exit "CMakeLists.txt without cmake exits 2 (untestable)" 2 bash "$VERIFY" "$FIX"
+  expect_output "cmake gap declared" 'cmake.*UNTESTED' bash "$VERIFY" "$FIX"
+else
+  skip "cmake-absent fixture (cmake present on this machine)"
+fi
+
+if command -v cmake >/dev/null 2>&1; then
+  new_fixture
+  printf 'cmake_minimum_required(VERSION 3.10)\nproject(fixture)\n' >"$FIX/CMakeLists.txt"
+  expect_exit "cmake project configures and builds green" 0 bash "$VERIFY" "$FIX"
+  expect_output "cmake build labeled" 'build \(cmake\)' bash "$VERIFY" "$FIX"
+else
+  skip "cmake green fixture (cmake missing on this machine)"
+fi
+
 if python3 -m pytest --version >/dev/null 2>&1; then
   new_fixture
   mkdir -p "$FIX/.github/workflows" "$FIX/tests"
