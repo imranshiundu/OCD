@@ -144,7 +144,7 @@ Do the hardest, most uncertain part first — not last. Laziness hides in "I'll 
 You may not claim work is done until **all** of this is true:
 
 1. **Detect the verification commands** from `package.json` scripts, `Makefile`, `justfile`, or CI config: lint, typecheck, tests, build.
-2. **Run them all — mechanically.** Use `scripts/verify.sh` from the OCD repo when you have it; otherwise the minimal loop below. Fix what fails. Re-run. Repeat until green. A red suite plus the words "done" is a lie.
+2. **Run them all — mechanically.** Use `ocd/scripts/verify.sh` — it ships inside this skill, so every installed copy has it (`scripts/` sits next to this SKILL.md); the minimal loop below is the fallback when even that is unavailable. Fix what fails. Re-run. Repeat until green. A red suite plus the words "done" is a lie.
 3. **Zero tolerated errors.** No `@ts-ignore`/`eslint-disable`/skipped tests/ignored warnings added by you to make the output green.
 4. **Fresh-eyes pass.** Re-read your diff as if reviewing a stranger's code. Would you approve it? If not, fix it.
 5. **Manual verification for anything visible.** Run it. Screenshot it. Before/after. "It compiles" is not "it works".
@@ -152,7 +152,7 @@ You may not claim work is done until **all** of this is true:
 
 If no verification tooling exists: for code you are changing this session, set up the minimum (lint + tests) — that is part of the change, not an imposition. For a repo that deliberately ships without tooling (docs-only, throwaway scripts), propose the minimum instead of imposing it — adding a toolchain is an owner's call (see *When the laws collide*). An untestable project is itself a finding — say so either way.
 
-Minimal verification loop — self-contained fallback for when only the skill (not the repo) is installed. The canonical, fuller detector is `scripts/verify.sh` in the OCD repo; keep both in sync:
+Minimal verification loop — self-contained fallback for when the verifier script is unavailable (manual SKILL.md-only copies). The canonical, fuller detector is `scripts/verify.sh`, shipped inside this skill folder; keep both in sync:
 
 ```bash
 FAILED=0

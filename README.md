@@ -23,7 +23,7 @@ OCD replaces all three with discipline.
 ## What it enforces
 
 - **Session-start arsenal** — detect the project stack, install the skills it needs (`npx skills add`), upgrade stale ones (`npx skills update -y -g`, throttled to once per 24h), and read only the ones relevant to the task.
-- **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff. Enforced mechanically by `scripts/verify.sh` when available.
+- **Zero-error exit criteria** — lint, typecheck, tests, build all green before "done"; no suppressed types or skipped tests added to fake green; fresh-eyes re-read of every diff. Enforced mechanically by `ocd/scripts/verify.sh`, which ships inside the skill — every `npx skills add` install includes it.
 - **Truth protocol** — bad news first, quantified ("~50ms per request", not "could be slow"), unprompted, and never softened.
 - **Receipts protocol** — makes lying structurally hard: every claim carries verbatim evidence (command + exit code + output excerpt); claims without receipts are void; every factual claim is labeled VERIFIED / ASSUMED / UNKNOWN; the final report must include an Evidence Block.
 - **No-laziness protocol** — fix every occurrence of a repeated problem, not the first; no stubs pretending to be features; boring work (tests, docs, types) is part of the task; every skip declared with a reason; the hard part first; "good enough" banned.
@@ -91,12 +91,14 @@ The agent will initialize its skill arsenal, run the verification loop, sweep al
 This repo passes its own bar:
 
 ```bash
-make verify          # or: scripts/verify.sh .
+make verify          # or: ocd/scripts/verify.sh .
 ```
 
-`verify.sh` is the mechanical form of the Zero-Error Exit Criteria: it detects lint/typecheck/test/build from a project's own config (package.json scripts, Makefile, justfile, Cargo.toml, go.mod, pyproject), runs each one, and prints receipts — the command, its exit code, and the verbatim output tail. Drop it into any project or point it at one: `scripts/verify.sh /path/to/project`. Exit codes: `0` green, `1` red, `2` untestable — and untestable is itself a finding.
+`verify.sh` is the mechanical form of the Zero-Error Exit Criteria: it detects lint/typecheck/test/build from a project's own config (package.json scripts with npm/pnpm/yarn/bun, Makefile, justfile, Cargo.toml, go.mod, pom.xml, build.gradle, pyproject), runs each one, and prints receipts — the command, its exit code, and the verbatim output tail. It also reads `.github/workflows/` and conservatively runs any canonical verification command it finds there, so config-less projects are covered too. Point it at any project: `ocd/scripts/verify.sh /path/to/project`. Exit codes: `0` green, `1` red, `2` untestable — and untestable is itself a finding.
 
-`scripts/selftest.sh` (run via `make test`) proves the verifier with fixture projects: green and red npm projects, Makefile/justfile/cargo/go fixtures, script-alias detection.
+Because the scripts live inside the skill folder, they ship with every CLI install — `npx skills add imranshiundu/OCD@ocd -g -y` installs the verifier next to SKILL.md, ready to run against any project on the machine.
+
+`ocd/scripts/selftest.sh` (run via `make test`) proves the verifier with fixture projects: green and red npm projects, Makefile/justfile/cargo/go fixtures, script-alias detection, package-manager and CI-workflow detection, and the bootstrapper.
 
 ## Versions
 
