@@ -11,17 +11,22 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then brew install shellcheck; else sudo apt-get update && sudo apt-get install -y shellcheck; fi
 
       - name: Lint (shellcheck)
         run: shellcheck ocd/scripts/*.sh
 
-      - name: "Selftest (fixture suite: verify.sh + ocdify)"
+      - name: Selftest (fixture suite)
         run: bash ocd/scripts/selftest.sh
 
       - name: Self-verify (this repo passes its own bar)
