@@ -165,6 +165,30 @@ else
   skip "pnpm-absent fallback fixture (needs npm+node and no pnpm)"
 fi
 
+if command -v pnpm >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-pnpm-green", "scripts": { "test": "true" } }
+EOF
+  : >"$FIX/pnpm-lock.yaml"
+  expect_exit "pnpm project green end to end" 0 bash "$VERIFY" "$FIX"
+  expect_output "pnpm is the runner" 'pnpm run test' bash "$VERIFY" "$FIX"
+else
+  skip "pnpm green fixture (pnpm missing on this machine)"
+fi
+
+if command -v yarn >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/package.json" <<'EOF'
+{ "name": "fixture-yarn-green", "scripts": { "test": "true" } }
+EOF
+  : >"$FIX/yarn.lock"
+  expect_exit "yarn project green end to end" 0 bash "$VERIFY" "$FIX"
+  expect_output "yarn is the runner" 'yarn run test' bash "$VERIFY" "$FIX"
+else
+  skip "yarn green fixture (yarn missing on this machine)"
+fi
+
 if command -v make >/dev/null 2>&1; then
   new_fixture
   printf 'lint:\n\t@true\ntest:\n\t@true\n' >"$FIX/Makefile"
@@ -213,6 +237,31 @@ if ! command -v mvn >/dev/null 2>&1; then
   expect_output "maven gap declared" 'maven UNTESTED' bash "$VERIFY" "$FIX"
 else
   skip "maven-absent fixture (mvn present on this machine)"
+fi
+
+if command -v mvn >/dev/null 2>&1; then
+  new_fixture
+  cat >"$FIX/pom.xml" <<'EOF'
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>ocd</groupId>
+  <artifactId>fixture</artifactId>
+  <version>1.0.0</version>
+</project>
+EOF
+  expect_exit "maven project green end to end (mvn -B test)" 0 bash "$VERIFY" "$FIX"
+  expect_output "maven test labeled" 'test \(maven\)' bash "$VERIFY" "$FIX"
+else
+  skip "maven green fixture (mvn missing on this machine)"
+fi
+
+if command -v gradle >/dev/null 2>&1; then
+  new_fixture
+  printf "tasks.register('check')\n" >"$FIX/build.gradle"
+  expect_exit "gradle project green end to end (gradle check)" 0 bash "$VERIFY" "$FIX"
+  expect_output "gradle check labeled" 'check \(gradle\)' bash "$VERIFY" "$FIX"
+else
+  skip "gradle green fixture (gradle missing on this machine)"
 fi
 
 if ! command -v gradle >/dev/null 2>&1; then
